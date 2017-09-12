@@ -12,6 +12,9 @@ from ovr.rift import Rift
 import ovr
 
 
+LEFT = 0
+RIGHT = 1
+
 class RiftGLRendererCompatibility(list):
     "Class RiftGLRenderer is a list of OpenGL actors"
 
@@ -51,28 +54,52 @@ class RiftGLRendererCompatibility(list):
                 0)
         # print format(glCheckFramebufferStatus(GL_FRAMEBUFFER), '#X'), GL_FRAMEBUFFER_COMPLETE
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)        
-        for eye in range(2):
-            # Set up eye viewport
-            v = layer.Viewport[eye]
-            glViewport(v.Pos.x, v.Pos.y, v.Size.w, v.Size.h)                
-            # Get projection matrix for the Rift camera
-            glMatrixMode(GL_PROJECTION)
-            glLoadIdentity()
-            proj = self.rift.get_perspective(layer.Fov[eye], 0.2, 100.0, )
-            glMultTransposeMatrixf(proj.M)
-            # Get view matrix for the Rift camera
-            glMatrixMode(GL_MODELVIEW)
-            glLoadIdentity()
-            p = layer.RenderPose[eye].Position
-            q = layer.RenderPose[eye].Orientation
-            pitch, yaw, roll = q.getEulerAngles()
-            glRotatef(-roll*180/math.pi, 0, 0, 1)
-            glRotatef(-yaw*180/math.pi, 0, 1, 0)
-            glRotatef(-pitch*180/math.pi, 1, 0, 0)
-            glTranslatef(-p.x, -p.y, -p.z)
-            # Render the scene for this eye.
-            for actor in self:
-                actor.display_gl()
+
+        ### Left eye
+        # Set up eye viewport
+        v = layer.Viewport[LEFT]
+        print("Left: ", v)
+        glViewport(v.Pos.x, v.Pos.y, v.Size.w, v.Size.h)                
+        # Get projection matrix for the Rift camera
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        proj = self.rift.get_perspective(layer.Fov[LEFT], 0.2, 100.0, )
+        glMultTransposeMatrixf(proj.M)
+        # Get view matrix for the Rift camera
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+        p = layer.RenderPose[LEFT].Position
+        q = layer.RenderPose[LEFT].Orientation
+        pitch, yaw, roll = q.getEulerAngles()
+        glRotatef(-roll*180/math.pi, 0, 0, 1)
+        glRotatef(-yaw*180/math.pi, 0, 1, 0)
+        glRotatef(-pitch*180/math.pi, 1, 0, 0)
+        glTranslatef(-p.x, -p.y, -p.z)
+
+        ### Right eye
+        # Set up eye viewport
+        v = layer.Viewport[RIGHT]
+        print("Right: ", v)
+        glViewport(v.Pos.x, v.Pos.y, v.Size.w, v.Size.h)                
+        # Get projection matrix for the Rift camera
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        proj = self.rift.get_perspective(layer.Fov[RIGHT], 0.2, 100.0, )
+        glMultTransposeMatrixf(proj.M)
+        # Get view matrix for the Rift camera
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+        p = layer.RenderPose[RIGHT].Position
+        q = layer.RenderPose[RIGHT].Orientation
+        pitch, yaw, roll = q.getEulerAngles()
+        glRotatef(-roll*180/math.pi, 0, 0, 1)
+        glRotatef(-yaw*180/math.pi, 0, 1, 0)
+        glRotatef(-pitch*180/math.pi, 1, 0, 0)
+        glTranslatef(-p.x, -p.y, -p.z)
+
+       # Render the scene for this eye.
+        for actor in self:
+            actor.display_gl()
         self.submit_frame()
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
 

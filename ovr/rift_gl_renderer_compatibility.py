@@ -14,6 +14,7 @@ import ovr
 
 LEFT = 0
 RIGHT = 1
+N_RANGE = 1.0
 
 class RiftGLRendererCompatibility(list):
     "Class RiftGLRenderer is a list of OpenGL actors"
@@ -47,22 +48,21 @@ class RiftGLRendererCompatibility(list):
         # 2) Rift pass
         glBindFramebuffer(GL_FRAMEBUFFER, self.fbo)
         layer, texId = self._update_gl_poses()
-        glFramebufferTexture2D(GL_FRAMEBUFFER, 
-                GL_COLOR_ATTACHMENT0, 
+        glFramebufferTexture2D(GL_FRAMEBUFFER,
+                GL_COLOR_ATTACHMENT0,
                 GL_TEXTURE_2D,
                 texId,
                 0)
         # print format(glCheckFramebufferStatus(GL_FRAMEBUFFER), '#X'), GL_FRAMEBUFFER_COMPLETE
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)        
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
         ### Left eye
-        # Set up eye viewport
         v = layer.Viewport[LEFT]
-        print("Left: ", v)
-        glViewport(v.Pos.x, v.Pos.y, v.Size.w, v.Size.h)                
+        glViewport(v.Pos.x, v.Pos.y, v.Size.w, v.Size.h)
         # Get projection matrix for the Rift camera
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
+        glOrtho(-self.width / 2, self.width / 2, -self.height / 2, self.height / 2, -1, 1)
         proj = self.rift.get_perspective(layer.Fov[LEFT], 0.2, 100.0, )
         glMultTransposeMatrixf(proj.M)
         # Get view matrix for the Rift camera
@@ -77,14 +77,13 @@ class RiftGLRendererCompatibility(list):
         glTranslatef(-p.x, -p.y, -p.z)
 
         ### Right eye
-        # Set up eye viewport
         v = layer.Viewport[RIGHT]
-        print("Right: ", v)
-        glViewport(v.Pos.x, v.Pos.y, v.Size.w, v.Size.h)                
+        glViewport(v.Pos.x, v.Pos.y, v.Size.w, v.Size.h)
         # Get projection matrix for the Rift camera
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
-        proj = self.rift.get_perspective(layer.Fov[RIGHT], 0.2, 100.0, )
+        #glOrtho(-self.width / 2, self.width / 2, -self.height / 2, self.height / 2, -1, 1)
+        proj = self.rift.get_perspective(layer.Fov[RIGHT], 0.2, 50.0, )
         glMultTransposeMatrixf(proj.M)
         # Get view matrix for the Rift camera
         glMatrixMode(GL_MODELVIEW)
@@ -97,9 +96,10 @@ class RiftGLRendererCompatibility(list):
         glRotatef(-pitch*180/math.pi, 1, 0, 0)
         glTranslatef(-p.x, -p.y, -p.z)
 
-       # Render the scene for this eye.
+        # Render the scene for this eye.
         for actor in self:
             actor.display_gl()
+
         self.submit_frame()
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
@@ -117,19 +117,32 @@ class RiftGLRendererCompatibility(list):
         for actor in self:
             actor.init_gl()
 
-    def resize_gl(self, width, height):
-        self.width = width
-        self.height = height
-        glViewport(0, 0, width, height)
+    def resize_gl(self, w, h):
+        if h == 0:
+            h = 1
+        self.width = w
+        self.height = h
+        glViewport(0, 0, w, h)
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        
+        if w <= h:
+            glOrtho(-N_RANGE, N_RANGE, -N_RANGE * h / w, N_RANGE * h / w, -N_RANGE, N_RANGE)
+        else:
+            glOrtho(-N_RANGE * w / h, N_RANGE * w / h, -N_RANGE, N_RANGE, -N_RANGE, N_RANGE)
+		
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
         self._set_up_desktop_projection()
+
 
     def submit_frame(self):
         # 2c) Call ovr_SubmitFrame, passing swap texture set(s) from the previous step within a ovrLayerEyeFov structure. Although a single layer is required to submit a frame, you can use multiple layers and layer types for advanced rendering. ovr_SubmitFrame passes layer textures to the compositor which handles distortion, timewarp, and GPU synchronization before presenting it to the headset. 
         layers = [self.layer.Header]
         viewScale = ovr.ViewScaleDesc()
         viewScale.HmdSpaceToWorldScaleInMeters = 1.0
-        viewScale.HmdToEyeOffset[0] = self.hmdToEyeOffset[0]
-        viewScale.HmdToEyeOffset[1] = self.hmdToEyeOffset[1]
+        viewScale.HmdToEyeOffset[LEFT] = self.hmdToEyeOffset[LEFT]
+        viewScale.HmdToEyeOffset[RIGHT] = self.hmdToEyeOffset[RIGHT]
         self.rift.commit_texture_swap_chain(self.textureSwapChain)
         result = self.rift.submit_frame(self.frame_index, viewScale, layers, 1)
         self.frame_index += 1
@@ -143,9 +156,9 @@ class RiftGLRendererCompatibility(list):
         # 1bb) Compute texture sizes
         hmdDesc = self.rift.hmdDesc
         recommenedTex0Size = self.rift.get_fov_texture_size(ovr.Eye_Left, 
-                hmdDesc.DefaultEyeFov[0])
+                hmdDesc.DefaultEyeFov[LEFT])
         recommenedTex1Size = self.rift.get_fov_texture_size(ovr.Eye_Right,
-                hmdDesc.DefaultEyeFov[1])
+                hmdDesc.DefaultEyeFov[RIGHT])
         bufferSize = ovr.Sizei()
         bufferSize.w  = recommenedTex0Size.w + recommenedTex1Size.w
         bufferSize.h = max ( recommenedTex0Size.h, recommenedTex1Size.h )
@@ -157,21 +170,21 @@ class RiftGLRendererCompatibility(list):
         # 1ba) Compute FOV
         eyeRenderDesc = (ovr.EyeRenderDesc * 2)()
         hmdToEyeOffset = (ovr.Vector3f * 2)()
-        eyeRenderDesc[0] = self.rift.get_render_desc(ovr.Eye_Left, hmdDesc.DefaultEyeFov[0])
-        eyeRenderDesc[1] = self.rift.get_render_desc(ovr.Eye_Right, hmdDesc.DefaultEyeFov[1])
-        hmdToEyeOffset[0] = eyeRenderDesc[0].HmdToEyeOffset
-        hmdToEyeOffset[1] = eyeRenderDesc[1].HmdToEyeOffset
+        eyeRenderDesc[LEFT] = self.rift.get_render_desc(ovr.Eye_Left, hmdDesc.DefaultEyeFov[0])
+        eyeRenderDesc[RIGHT] = self.rift.get_render_desc(ovr.Eye_Right, hmdDesc.DefaultEyeFov[1])
+        hmdToEyeOffset[LEFT] = eyeRenderDesc[LEFT].HmdToEyeOffset
+        hmdToEyeOffset[RIGHT] = eyeRenderDesc[RIGHT].HmdToEyeOffset
         self.hmdToEyeOffset = hmdToEyeOffset
         # Initialize our single full screen Fov layer.
         layer = ovr.LayerEyeFov()
         layer.Header.Type      = ovr.LayerType_EyeFov
         layer.Header.Flags     = ovr.LayerFlag_TextureOriginAtBottomLeft # OpenGL convention
-        layer.ColorTexture[0]  = self.textureSwapChain # single texture for both eyes
-        layer.ColorTexture[1]  = self.textureSwapChain # single texture for both eyes
-        layer.Fov[0]           = eyeRenderDesc[0].Fov
-        layer.Fov[1]           = eyeRenderDesc[1].Fov
-        layer.Viewport[0]      = ovr.Recti(ovr.Vector2i(0, 0),                ovr.Sizei(int(bufferSize.w / 2), bufferSize.h))
-        layer.Viewport[1]      = ovr.Recti(ovr.Vector2i(int(bufferSize.w / 2), 0), ovr.Sizei(int(bufferSize.w / 2), bufferSize.h))
+        layer.ColorTexture[LEFT]  = self.textureSwapChain # single texture for both eyes
+        layer.ColorTexture[RIGHT]  = self.textureSwapChain # single texture for both eyes
+        layer.Fov[LEFT]           = eyeRenderDesc[LEFT].Fov
+        layer.Fov[RIGHT]           = eyeRenderDesc[RIGHT].Fov
+        layer.Viewport[LEFT]      = ovr.Recti(ovr.Vector2i(0, 0),                ovr.Sizei(int(bufferSize.w / 2), bufferSize.h))
+        layer.Viewport[RIGHT]      = ovr.Recti(ovr.Vector2i(int(bufferSize.w / 2), 0), ovr.Sizei(int(bufferSize.w / 2), bufferSize.h))
         self.layer = layer
 
     def _set_up_desktop_projection(self):

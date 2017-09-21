@@ -45,15 +45,17 @@ class RiftGLRendererCompatibility(list):
         self._set_up_desktop_projection()
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
-        
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         c = 0
         for actor in self:
             if c == 0:
                 glViewport(0, 0, 300, 300)
-                c += 1
+                c = 1
             else:
                 glViewport(300, 0, 300, 300)
-            actor.display_gl()
+                c = 0
+            self[c].display_gl()
 
     def display_rift_gl(self):
         # 2) Rift pass
@@ -67,11 +69,7 @@ class RiftGLRendererCompatibility(list):
         # print format(glCheckFramebufferStatus(GL_FRAMEBUFFER), '#X'), GL_FRAMEBUFFER_COMPLETE
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-        for eye in range(2):
-            # Render the scene for this eye.
-            for actor in self:
-                actor.display_gl()
-
+        for eye in [0, 1]:
             v = layer.Viewport[eye]
             glViewport(v.Pos.x, v.Pos.y, v.Size.w, v.Size.h)
             # Get projection matrix for the Rift camera
@@ -90,6 +88,9 @@ class RiftGLRendererCompatibility(list):
             glRotatef(-yaw*180/math.pi, 0, 1, 0)
             glRotatef(-pitch*180/math.pi, 1, 0, 0)
             glTranslatef(-p.x, -p.y, -p.z)
+
+            # Render the scene for this eye.
+            self[eye].display_gl()
 
         self.submit_frame()
         glBindFramebuffer(GL_FRAMEBUFFER, 0)

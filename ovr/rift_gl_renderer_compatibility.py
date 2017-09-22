@@ -10,7 +10,7 @@ from OpenGL.GL import *
 
 from ovr.rift import Rift
 import ovr
-
+import time
 
 LEFT = 0
 RIGHT = 1
@@ -47,15 +47,8 @@ class RiftGLRendererCompatibility(list):
         glLoadIdentity()
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        c = 0
         for actor in self:
-            if c == 0:
-                glViewport(0, 0, 300, 300)
-                c = 1
-            else:
-                glViewport(300, 0, 300, 300)
-                c = 0
-            self[c].display_gl()
+            actor.display_gl()
 
     def display_rift_gl(self):
         # 2) Rift pass
@@ -68,10 +61,11 @@ class RiftGLRendererCompatibility(list):
                 0)
         # print format(glCheckFramebufferStatus(GL_FRAMEBUFFER), '#X'), GL_FRAMEBUFFER_COMPLETE
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-
-        for eye in [0, 1]:
+        for eye in range(2):
             v = layer.Viewport[eye]
-            glViewport(v.Pos.x, v.Pos.y, v.Size.w, v.Size.h)
+            glViewport(v.Pos.x + 15, v.Pos.y - 15, v.Size.w, v.Size.h)
+            if eye == 1:
+                glViewport(v.Pos.x - 15, v.Pos.y + 15, v.Size.w, v.Size.h / 2)
             # Get projection matrix for the Rift camera
             glMatrixMode(GL_PROJECTION)
             glLoadIdentity()
@@ -90,7 +84,9 @@ class RiftGLRendererCompatibility(list):
             glTranslatef(-p.x, -p.y, -p.z)
 
             # Render the scene for this eye.
-            self[eye].display_gl()
+            for actor in self:
+                actor.display_gl()
+            #time.sleep(1)
 
         self.submit_frame()
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
@@ -103,7 +99,7 @@ class RiftGLRendererCompatibility(list):
             self.rift.destroy_swap_texture(self.textureSwapChain)       
 
     def init_gl(self):
-        glClearColor(0, 0, 1, 0)
+        glClearColor(0.0, 0.0, 1.0, 0.0)
         self._init_rift_render_layer()
         self.fbo = glGenFramebuffers(1)
         self._set_up_desktop_projection()

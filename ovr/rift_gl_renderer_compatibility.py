@@ -36,7 +36,7 @@ class RiftGLRendererCompatibility(list):
 
     def display_gl(self):
         self.display_rift_gl()
-        self.display_desktop_gl()
+        #self.display_desktop_gl()
 
     def display_desktop_gl(self):
         # 1) desktop (non-Rift) pass
@@ -62,10 +62,9 @@ class RiftGLRendererCompatibility(list):
         # print format(glCheckFramebufferStatus(GL_FRAMEBUFFER), '#X'), GL_FRAMEBUFFER_COMPLETE
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         for eye in range(2):
+            glPushMatrix()
             v = layer.Viewport[eye]
-            glViewport(v.Pos.x + 15, v.Pos.y - 15, v.Size.w, v.Size.h)
-            if eye == 1:
-                glViewport(v.Pos.x - 15, v.Pos.y + 15, v.Size.w, v.Size.h / 2)
+            glViewport(v.Pos.x, v.Pos.y, v.Size.w, v.Size.h)
             # Get projection matrix for the Rift camera
             glMatrixMode(GL_PROJECTION)
             glLoadIdentity()
@@ -87,6 +86,7 @@ class RiftGLRendererCompatibility(list):
             for actor in self:
                 actor.display_gl()
             #time.sleep(1)
+            glPopMatrix()
 
         self.submit_frame()
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
@@ -107,6 +107,7 @@ class RiftGLRendererCompatibility(list):
             actor.init_gl()
 
     def resize_gl(self, w, h):
+        """
         if h == 0:
             h = 1
         self.width = w
@@ -123,6 +124,8 @@ class RiftGLRendererCompatibility(list):
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
         self._set_up_desktop_projection()
+        """
+        pass
 
 
     def submit_frame(self):
@@ -148,10 +151,12 @@ class RiftGLRendererCompatibility(list):
                 hmdDesc.DefaultEyeFov[LEFT])
         recommenedTex1Size = self.rift.get_fov_texture_size(ovr.Eye_Right,
                 hmdDesc.DefaultEyeFov[RIGHT])
+        hmdDesc.DefaultEyeFov[LEFT].UpTan = hmdDesc.DefaultEyeFov[RIGHT].UpTan
+        hmdDesc.DefaultEyeFov[LEFT].RightTan = 1.05865764618
         bufferSize = ovr.Sizei()
         bufferSize.w  = recommenedTex0Size.w + recommenedTex1Size.w
-        bufferSize.h = max ( recommenedTex0Size.h, recommenedTex1Size.h )
-        # print "Recommended buffer size = ", bufferSize, bufferSize.w, bufferSize.h
+        bufferSize.h = max(recommenedTex0Size.h, recommenedTex1Size.h)
+        #print "Recommended buffer size = ", bufferSize, bufferSize.w, bufferSize.h
         # NOTE: We need to have set up OpenGL context before this point...
         # 1c) Allocate SwapTextureSets
         self.textureSwapChain = self.rift.create_swap_texture(bufferSize)
@@ -166,14 +171,14 @@ class RiftGLRendererCompatibility(list):
         self.hmdToEyeOffset = hmdToEyeOffset
         # Initialize our single full screen Fov layer.
         layer = ovr.LayerEyeFov()
-        layer.Header.Type      = ovr.LayerType_EyeFov
-        layer.Header.Flags     = ovr.LayerFlag_TextureOriginAtBottomLeft # OpenGL convention
+        layer.Header.Type = ovr.LayerType_EyeFov
+        layer.Header.Flags = ovr.LayerFlag_TextureOriginAtBottomLeft # OpenGL convention
         layer.ColorTexture[LEFT]  = self.textureSwapChain # single texture for both eyes
         layer.ColorTexture[RIGHT]  = self.textureSwapChain # single texture for both eyes
-        layer.Fov[LEFT]           = eyeRenderDesc[LEFT].Fov
-        layer.Fov[RIGHT]           = eyeRenderDesc[RIGHT].Fov
-        layer.Viewport[LEFT]      = ovr.Recti(ovr.Vector2i(0, 0),                ovr.Sizei(int(bufferSize.w / 2), bufferSize.h))
-        layer.Viewport[RIGHT]      = ovr.Recti(ovr.Vector2i(int(bufferSize.w / 2), 0), ovr.Sizei(int(bufferSize.w / 2), bufferSize.h))
+        layer.Fov[LEFT] = eyeRenderDesc[LEFT].Fov
+        layer.Fov[RIGHT] = eyeRenderDesc[RIGHT].Fov
+        layer.Viewport[LEFT] = ovr.Recti(ovr.Vector2i(0, 0), ovr.Sizei(int(bufferSize.w / 2), bufferSize.h))
+        layer.Viewport[RIGHT] = ovr.Recti(ovr.Vector2i(int(bufferSize.w / 2), 0), ovr.Sizei(int(bufferSize.w / 2), bufferSize.h))
         self.layer = layer
 
     def _set_up_desktop_projection(self):

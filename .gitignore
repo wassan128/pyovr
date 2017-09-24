@@ -6,6 +6,7 @@
 /examples/glut/*.pyc
 /dist
 *.pyc
+*.swp
 /.project
 /.pydevproject
 .idea

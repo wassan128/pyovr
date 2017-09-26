@@ -36,7 +36,7 @@ class RiftGLRendererCompatibility(list):
 
     def display_gl(self):
         self.display_rift_gl()
-        #self.display_desktop_gl()
+        self.display_desktop_gl()
 
     def display_desktop_gl(self):
         # 1) desktop (non-Rift) pass
@@ -62,9 +62,9 @@ class RiftGLRendererCompatibility(list):
         # print format(glCheckFramebufferStatus(GL_FRAMEBUFFER), '#X'), GL_FRAMEBUFFER_COMPLETE
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         for eye in range(2):
-            glPushMatrix()
             v = layer.Viewport[eye]
             glViewport(v.Pos.x, v.Pos.y, v.Size.w, v.Size.h)
+            
             # Get projection matrix for the Rift camera
             glMatrixMode(GL_PROJECTION)
             glLoadIdentity()
@@ -83,10 +83,7 @@ class RiftGLRendererCompatibility(list):
             glTranslatef(-p.x, -p.y, -p.z)
 
             # Render the scene for this eye.
-            for actor in self:
-                actor.display_gl()
-            #time.sleep(1)
-            glPopMatrix()
+            self[eye].display_gl()
 
         self.submit_frame()
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
@@ -107,7 +104,6 @@ class RiftGLRendererCompatibility(list):
             actor.init_gl()
 
     def resize_gl(self, w, h):
-        """
         if h == 0:
             h = 1
         self.width = w
@@ -124,8 +120,6 @@ class RiftGLRendererCompatibility(list):
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
         self._set_up_desktop_projection()
-        """
-        pass
 
 
     def submit_frame(self):
